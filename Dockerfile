@@ -10,9 +10,11 @@ COPY templates ./templates
 
 # CSVファイルをコピー（存在確認付き）
 COPY verb.csv /app/verb.csv
+COPY adjective.csv /app/adjective.csv
 
 # ファイルが正しくコピーされたか確認
 RUN ls -lh /app/verb.csv || (echo "ERROR: verb.csv not found!" && exit 1)
+RUN ls -lh /app/adjective.csv || (echo "ERROR: adjective.csv not found!" && exit 1)
 
 EXPOSE 8000
 

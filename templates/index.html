@@ -58,6 +58,12 @@
         border-radius: 8px;
         background: #f9f9f9;
       }
+      .result-item.verb {
+        background: #e8f5e9; /* 薄緑 */
+      }
+      .result-item.adjective {
+        background: #fff9c4; /* 薄黄色 */
+      }
       .result-item a {
         color: #007bff;
         text-decoration: none;
@@ -146,16 +152,21 @@
       </form>
     </div>
     
-    {% if results %}
+      {% if results %}
     <div class="results">
       <h2>検索結果 ({{ results|length }}件)</h2>
       {% for result in results %}
-      <div class="result-item">
+      <div class="result-item {{ result.source }}">
         <a href="/{{ result.slug }}">
           {% if result.subtitle %}
             {{ result.title }} - {{ result.subtitle }}
           {% else %}
             {{ result.title }}
+          {% endif %}
+          {% if result.source == 'verb' %}
+            （動詞）
+          {% elif result.source == 'adjective' %}
+            （形容詞）
           {% endif %}
         </a>
       </div>

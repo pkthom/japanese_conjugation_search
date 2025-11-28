@@ -13,7 +13,8 @@ from jinja2 import Environment, FileSystemLoader
 from threading import Lock
 import asyncio
 
-CSV_FILE_PATH = os.environ.get("CSV_FILE_PATH", "/app/verb.csv")
+VERB_CSV_PATH = os.environ.get("VERB_CSV_PATH", "/app/verb.csv")
+ADJECTIVE_CSV_PATH = os.environ.get("ADJECTIVE_CSV_PATH", "/app/adjective.csv")
 
 app = FastAPI(title="Japanese Verb and Adjective Conjugation")
 
@@ -137,7 +138,8 @@ def render_template(template_name: str, **kwargs):
 # 起動時に必ずログを出力
 print("=" * 60, flush=True)
 print("🚀 Application starting (FastAPI)...", flush=True)
-print(f"📁 CSV_FILE_PATH will be: {CSV_FILE_PATH}", flush=True)
+print(f"📁 VERB_CSV_PATH will be: {VERB_CSV_PATH}", flush=True)
+print(f"📁 ADJECTIVE_CSV_PATH will be: {ADJECTIVE_CSV_PATH}", flush=True)
 print("=" * 60, flush=True)
 
 # キャッシュ用のロック
@@ -148,20 +150,20 @@ _cache_loading = False
 CACHE_TTL = 600
 CACHE_REFRESH_THRESHOLD = 540
 
-def load_csv_data():
+def load_csv_data(csv_path):
     """CSVデータをローカルファイルから読み込む（高速）"""
     try:
-        msg = f"🚀 Loading CSV from local file: {CSV_FILE_PATH}"
+        msg = f"🚀 Loading CSV from local file: {csv_path}"
         print(msg, flush=True)
         logger.info(msg)
         
-        if not os.path.exists(CSV_FILE_PATH):
-            error_msg = f"CSV file not found: {CSV_FILE_PATH}"
+        if not os.path.exists(csv_path):
+            error_msg = f"CSV file not found: {csv_path}"
             print(f"❌ {error_msg}", flush=True)
             logger.error(f"❌ {error_msg}")
             raise FileNotFoundError(error_msg)
         
-        file_size = os.path.getsize(CSV_FILE_PATH)
+        file_size = os.path.getsize(csv_path)
         size_msg = f"📊 CSV file size: {file_size:,} bytes ({file_size/1024:.2f} KB)"
         print(size_msg, flush=True)
         logger.info(size_msg)
@@ -176,7 +178,7 @@ def load_csv_data():
                 encoding_msg = f"Trying encoding: {encoding}"
                 print(encoding_msg, flush=True)
                 logger.info(encoding_msg)
-                df = pd.read_csv(CSV_FILE_PATH, encoding=encoding)
+                df = pd.read_csv(csv_path, encoding=encoding)
                 success_msg = f"✅ CSV loaded successfully with encoding: {encoding}"
                 print(success_msg, flush=True)
                 logger.info(success_msg)
@@ -202,7 +204,7 @@ def load_csv_data():
         logger.info(shape_msg)
         return df
     except FileNotFoundError as e:
-        error_msg = f"❌ CSV file not found: {CSV_FILE_PATH}"
+        error_msg = f"❌ CSV file not found: {csv_path}"
         print(error_msg, flush=True)
         logger.error(error_msg)
         logger.error(f"Current working directory: {os.getcwd()}")
@@ -215,29 +217,56 @@ def load_csv_data():
         raise
 
 def load_data():
-    """データを読み込む（ローカルCSVファイルのみ）"""
-    check_msg = f"🔍 Checking for CSV file at: {CSV_FILE_PATH}"
-    print(check_msg, flush=True)
-    logger.info(check_msg)
+    """データを読み込む（verb.csvとadjective.csvの両方）"""
+    all_chunks = []
     
-    if not os.path.exists(CSV_FILE_PATH):
-        error_msg = f"❌ CSV file NOT found at {CSV_FILE_PATH}. Please ensure the file exists."
+    # verb.csvを読み込む
+    if os.path.exists(VERB_CSV_PATH):
+        check_msg = f"🔍 Checking for verb CSV file at: {VERB_CSV_PATH}"
+        print(check_msg, flush=True)
+        logger.info(check_msg)
+        found_msg = f"✅ Verb CSV file found! Using local CSV file - {VERB_CSV_PATH}"
+        print(found_msg, flush=True)
+        logger.info(found_msg)
+        verb_df = load_csv_data(VERB_CSV_PATH)
+        verb_chunks = split_data_into_chunks(verb_df, source='verb')
+        all_chunks.extend(verb_chunks)
+    else:
+        warning_msg = f"⚠️ Verb CSV file NOT found at {VERB_CSV_PATH}. Skipping."
+        print(warning_msg, flush=True)
+        logger.warning(warning_msg)
+    
+    # adjective.csvを読み込む
+    if os.path.exists(ADJECTIVE_CSV_PATH):
+        check_msg = f"🔍 Checking for adjective CSV file at: {ADJECTIVE_CSV_PATH}"
+        print(check_msg, flush=True)
+        logger.info(check_msg)
+        found_msg = f"✅ Adjective CSV file found! Using local CSV file - {ADJECTIVE_CSV_PATH}"
+        print(found_msg, flush=True)
+        logger.info(found_msg)
+        adjective_df = load_csv_data(ADJECTIVE_CSV_PATH)
+        adjective_chunks = split_data_into_chunks(adjective_df, source='adjective')
+        all_chunks.extend(adjective_chunks)
+    else:
+        warning_msg = f"⚠️ Adjective CSV file NOT found at {ADJECTIVE_CSV_PATH}. Skipping."
+        print(warning_msg, flush=True)
+        logger.warning(warning_msg)
+    
+    if len(all_chunks) == 0:
+        error_msg = f"❌ No CSV files found. Checked: {VERB_CSV_PATH}, {ADJECTIVE_CSV_PATH}"
         print(error_msg, flush=True)
         logger.error(error_msg)
-        logger.error(f"Current working directory: {os.getcwd()}")
-        if os.path.exists('/app'):
-            files_list = os.listdir('/app')
-            print(f"Files in /app: {files_list}", flush=True)
-            logger.error(f"Files in /app: {files_list}")
         raise FileNotFoundError(error_msg)
     
-    found_msg = f"✅ CSV file found! Using local CSV file - {CSV_FILE_PATH}"
-    print(found_msg, flush=True)
-    logger.info(found_msg)
-    return load_csv_data()
+    return all_chunks
 
-def split_data_into_chunks(df):
-    """データを4行ごとの塊に分割し、各塊の情報を返す"""
+def split_data_into_chunks(df, source='verb'):
+    """データを4行ごとの塊に分割し、各塊の情報を返す
+    
+    Args:
+        df: データフレーム
+        source: データソース（'verb'または'adjective'）
+    """
     chunks = []
     start_idx = 0
     while start_idx < len(df):
@@ -255,14 +284,18 @@ def split_data_into_chunks(df):
                 subtitle_value = chunk_df.iloc[0, 1]
                 if pd.notna(subtitle_value):
                     subtitle = str(subtitle_value).strip()
-            slug = re.sub(r'[^\w\s-]', '', title.lower())
-            slug = re.sub(r'[-\s]+', '-', slug)
-            slug = slug.strip('-')
+            # ソースを考慮したスラッグ生成（重複を避けるため）
+            base_slug = re.sub(r'[^\w\s-]', '', title.lower())
+            base_slug = re.sub(r'[-\s]+', '-', base_slug)
+            base_slug = base_slug.strip('-')
+            # ソースをスラッグに含める（重複を避けるため）
+            slug = f"{base_slug}-{source}" if source else base_slug
             
             chunks.append({
                 'title': title,
                 'subtitle': subtitle,  # B列の値
                 'slug': slug,
+                'source': source,  # 'verb'または'adjective'
                 'data': chunk_df,
                 'columns': df.columns.tolist()
             })
@@ -302,8 +335,7 @@ def _refresh_cache():
     global _cache_data, _cache_timestamp, _cache_loading
     
     try:
-        df = load_data()
-        chunks = split_data_into_chunks(df)
+        chunks = load_data()  # load_data()は既にチャンクのリストを返す
         
         with _cache_lock:
             _cache_data = chunks
@@ -353,23 +385,46 @@ def ensure_initialized():
             import sys
             sys.stdout.write("=" * 60 + "\n")
             sys.stdout.write("🚀 Starting application initialization...\n")
-            sys.stdout.write(f"📁 CSV_FILE_PATH: {CSV_FILE_PATH}\n")
+            sys.stdout.write(f"📁 VERB_CSV_PATH: {VERB_CSV_PATH}\n")
+            sys.stdout.write(f"📁 ADJECTIVE_CSV_PATH: {ADJECTIVE_CSV_PATH}\n")
             sys.stdout.write(f"📂 Current working directory: {os.getcwd()}\n")
             sys.stdout.flush()
             
             logger.info("=" * 60)
             logger.info("🚀 Starting application initialization...")
-            logger.info(f"📁 CSV_FILE_PATH: {CSV_FILE_PATH}")
+            logger.info(f"📁 VERB_CSV_PATH: {VERB_CSV_PATH}")
+            logger.info(f"📁 ADJECTIVE_CSV_PATH: {ADJECTIVE_CSV_PATH}")
             logger.info(f"📂 Current working directory: {os.getcwd()}")
             
-            if os.path.exists(CSV_FILE_PATH):
-                file_size = os.path.getsize(CSV_FILE_PATH)
-                msg = f"✅ CSV file found! Size: {file_size:,} bytes ({file_size/1024:.2f} KB)"
+            found_files = []
+            if os.path.exists(VERB_CSV_PATH):
+                file_size = os.path.getsize(VERB_CSV_PATH)
+                msg = f"✅ Verb CSV file found! Size: {file_size:,} bytes ({file_size/1024:.2f} KB)"
                 sys.stdout.write(msg + "\n")
                 sys.stdout.flush()
                 logger.info(msg)
+                found_files.append(VERB_CSV_PATH)
             else:
-                error_msg = f"❌ CSV file NOT found at {CSV_FILE_PATH}"
+                warning_msg = f"⚠️ Verb CSV file NOT found at {VERB_CSV_PATH}"
+                sys.stdout.write(warning_msg + "\n")
+                sys.stdout.flush()
+                logger.warning(warning_msg)
+            
+            if os.path.exists(ADJECTIVE_CSV_PATH):
+                file_size = os.path.getsize(ADJECTIVE_CSV_PATH)
+                msg = f"✅ Adjective CSV file found! Size: {file_size:,} bytes ({file_size/1024:.2f} KB)"
+                sys.stdout.write(msg + "\n")
+                sys.stdout.flush()
+                logger.info(msg)
+                found_files.append(ADJECTIVE_CSV_PATH)
+            else:
+                warning_msg = f"⚠️ Adjective CSV file NOT found at {ADJECTIVE_CSV_PATH}"
+                sys.stdout.write(warning_msg + "\n")
+                sys.stdout.flush()
+                logger.warning(warning_msg)
+            
+            if len(found_files) == 0:
+                error_msg = f"❌ No CSV files found. Checked: {VERB_CSV_PATH}, {ADJECTIVE_CSV_PATH}"
                 sys.stderr.write(error_msg + "\n")
                 sys.stderr.flush()
                 logger.error(error_msg)
@@ -617,11 +672,16 @@ async def page_detail(request: Request, slug: str):
             
             display_df = display_df.fillna('')
             
+            # 改行コードを<br>タグに変換（HTMLで改行を表示するため）
+            for col in display_df.columns:
+                display_df[col] = display_df[col].astype(str).str.replace('\n', '<br>', regex=False)
+            
             table_start = time.time()
             table_html = display_df.to_html(
                 classes="table",
                 index=False,
                 border=0,
+                escape=False,  # HTMLタグをエスケープしない
             )
             table_elapsed = time.time() - table_start
             logger.info(f"📊 Table HTML generated in {table_elapsed:.3f}s")
