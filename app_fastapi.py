@@ -80,8 +80,10 @@ class TimingMiddleware(BaseHTTPMiddleware):
             response.headers["CF-Cache-Status"] = "DYNAMIC"
             # 接続を保持
             response.headers["Connection"] = "keep-alive"
-            # Transfer-EncodingとContent-Lengthの競合を避けるため、手動でTransfer-Encodingを設定しない
-            # FastAPI/Uvicornが自動的に適切なヘッダーを設定します
+            # Content-LengthとTransfer-Encodingの競合を避けるため、Content-Lengthを削除
+            # Uvicornが自動的にTransfer-Encoding: chunkedを設定する場合があるため
+            if "Content-Length" in response.headers:
+                del response.headers["Content-Length"]
             return response
         except Exception as e:
             process_time = time.time() - start_time
@@ -92,14 +94,18 @@ class TimingMiddleware(BaseHTTPMiddleware):
                 error_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 error_response.headers["CF-Cache-Status"] = "DYNAMIC"
                 error_response.headers["Connection"] = "keep-alive"
-                # Transfer-EncodingとContent-Lengthの競合を避けるため、手動でTransfer-Encodingを設定しない
+                # Content-LengthとTransfer-Encodingの競合を避けるため、Content-Lengthを削除
+                if "Content-Length" in error_response.headers:
+                    del error_response.headers["Content-Length"]
                 return error_response
             except:
                 error_response = HTMLResponse(content=f"<h1>エラーが発生しました</h1><p>{str(e)}</p><p><a href='/'>トップページに戻る</a></p>", status_code=500)
                 error_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 error_response.headers["CF-Cache-Status"] = "DYNAMIC"
                 error_response.headers["Connection"] = "keep-alive"
-                # Transfer-EncodingとContent-Lengthの競合を避けるため、手動でTransfer-Encodingを設定しない
+                # Content-LengthとTransfer-Encodingの競合を避けるため、Content-Lengthを削除
+                if "Content-Length" in error_response.headers:
+                    del error_response.headers["Content-Length"]
                 return error_response
 
 app.add_middleware(TimingMiddleware)
