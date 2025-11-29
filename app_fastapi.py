@@ -678,9 +678,12 @@ async def page_detail(request: Request, slug: str):
             
             display_df = display_df.fillna('')
             
-            # 改行コードを<br>タグに変換（HTMLで改行を表示するため）
+            # 改行コードを削除（セル内の文字は絶対に改行しない）
             for col in display_df.columns:
-                display_df[col] = display_df[col].astype(str).str.replace('\n', '<br>', regex=False)
+                # すべての種類の改行コードを削除
+                display_df[col] = display_df[col].astype(str).str.replace('\n', ' ', regex=False).str.replace('\r', ' ', regex=False).str.replace('\r\n', ' ', regex=False)
+                # 連続するスペースを1つにまとめる
+                display_df[col] = display_df[col].str.replace(r'\s+', ' ', regex=True).str.strip()
             
             table_start = time.time()
             table_html = display_df.to_html(
@@ -689,6 +692,28 @@ async def page_detail(request: Request, slug: str):
                 border=0,
                 escape=False,  # HTMLタグをエスケープしない
             )
+            # 生成されたHTMLからも改行コードと<br>タグを削除（動詞・形容詞共通の処理）
+            # <td>と</td>の間の改行を削除（セル内のテキストを1行に保つ）
+            def clean_cell_content(match):
+                """セル内のコンテンツから改行を完全に削除"""
+                tag_start = match.group(1)
+                content = match.group(2)
+                tag_end = match.group(3)
+                # すべての改行コード、<br>タグ、連続するスペースを削除
+                cleaned = re.sub(r'<br\s*/?>', ' ', content, flags=re.IGNORECASE)
+                cleaned = cleaned.replace('\n', ' ').replace('\r', '').replace('\t', ' ')
+                cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+                return tag_start + cleaned + tag_end
+            
+            table_html = re.sub(r'(<td[^>]*>)(.*?)(</td>)', clean_cell_content, table_html, flags=re.DOTALL)
+            # <th>と</th>の間の改行も削除
+            table_html = re.sub(r'(<th[^>]*>)(.*?)(</th>)', clean_cell_content, table_html, flags=re.DOTALL)
+            # HTML全体の改行コードを削除（ただし、タグ間の構造は保持）
+            table_html = re.sub(r'\n\s*', ' ', table_html)
+            table_html = re.sub(r'\r\s*', ' ', table_html)
+            table_html = re.sub(r'\s+', ' ', table_html)
+            # タグ間の不要なスペースを整理
+            table_html = re.sub(r'>\s+<', '><', table_html)
             table_elapsed = time.time() - table_start
             logger.info(f"📊 Table HTML generated in {table_elapsed:.3f}s")
             

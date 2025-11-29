@@ -41,23 +41,38 @@
         overflow-x: auto;
       }
       .table-wrapper {
-        overflow-x: auto;
+        overflow-x: auto !important; /* 横スクロールを強制 */
+        overflow-y: visible !important;
         -webkit-overflow-scrolling: touch;
         margin-top: 20px;
         width: 100%;
+        position: relative;
+        display: block; /* ブロック要素として表示（横スクロールを確実に有効化） */
       }
       table {
         border-collapse: collapse;
-        width: auto;
-        min-width: 100%;
+        width: max-content !important; /* コンテンツに合わせて幅を決める */
         font-size: 16px;
-        table-layout: auto;
+        table-layout: auto !important; /* 自動レイアウト（コンテンツに合わせる） */
+        margin: 0 !important;
+        min-width: 0 !important; /* min-widthを削除 */
       }
       th, td {
         border: 1px solid #ccc;
         padding: 12px 8px;
         text-align: left;
-        white-space: pre-line; /* 改行コードを改行として表示 */
+        white-space: nowrap !important; /* セル内の文字は絶対に改行しない */
+        word-break: keep-all !important; /* 単語の途中で改行しない */
+        overflow-wrap: normal !important; /* 改行を防ぐ */
+        word-wrap: normal !important; /* 改行を防ぐ（古いブラウザ対応） */
+        display: table-cell !important; /* テーブルセルとして表示 */
+        max-width: none !important; /* 最大幅の制限を解除 */
+      }
+      th br, td br {
+        display: none; /* <br>タグを無効化 */
+      }
+      tr {
+        display: table-row; /* テーブル行として表示 */
       }
       th {
         background: #f0f0f0;
@@ -92,17 +107,31 @@
         }
         .table-wrapper {
           margin-top: 15px;
+          overflow-x: auto !important; /* 横スクロールを強制 */
+          overflow-y: visible !important;
           -webkit-overflow-scrolling: touch;
+          position: relative;
+          display: block; /* ブロック要素として表示（横スクロールを確実に有効化） */
         }
         table {
           font-size: 14px;
-          width: auto;
-          min-width: 100%;
+          width: max-content !important; /* コンテンツに合わせて幅を決める */
+          table-layout: auto !important; /* 自動レイアウト（コンテンツに合わせる） */
+          margin: 0 !important;
+          min-width: 0 !important; /* min-widthを削除 */
         }
         th, td {
           padding: 10px 6px;
           font-size: 14px;
-          white-space: pre-line; /* 改行コードを改行として表示 */
+          white-space: nowrap !important; /* セル内の文字は絶対に改行しない */
+          word-break: keep-all !important; /* 単語の途中で改行しない */
+          overflow-wrap: normal !important; /* 改行を防ぐ */
+          word-wrap: normal !important; /* 改行を防ぐ（古いブラウザ対応） */
+          display: table-cell !important; /* テーブルセルとして表示 */
+          max-width: none !important; /* 最大幅の制限を解除 */
+        }
+        th br, td br {
+          display: none; /* <br>タグを無効化 */
         }
         th {
           font-size: 14px;
@@ -117,15 +146,31 @@
         h1 {
           font-size: 18px;
         }
+        .table-wrapper {
+          overflow-x: auto !important; /* 横スクロールを強制 */
+          overflow-y: visible !important;
+          position: relative;
+          display: block; /* ブロック要素として表示（横スクロールを確実に有効化） */
+        }
         table {
           font-size: 12px;
-          width: auto;
-          min-width: 100%;
+          width: max-content !important; /* コンテンツに合わせて幅を決める */
+          table-layout: auto !important; /* 自動レイアウト（コンテンツに合わせる） */
+          margin: 0 !important;
+          min-width: 0 !important; /* min-widthを削除 */
         }
         th, td {
           padding: 8px 4px;
           font-size: 12px;
-          white-space: pre-line; /* 改行コードを改行として表示 */
+          white-space: nowrap !important; /* セル内の文字は絶対に改行しない */
+          word-break: keep-all !important; /* 単語の途中で改行しない */
+          overflow-wrap: normal !important; /* 改行を防ぐ */
+          word-wrap: normal !important; /* 改行を防ぐ（古いブラウザ対応） */
+          display: table-cell !important; /* テーブルセルとして表示 */
+          max-width: none !important; /* 最大幅の制限を解除 */
+        }
+        th br, td br {
+          display: none; /* <br>タグを無効化 */
         }
         th {
           font-size: 12px;
